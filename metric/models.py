@@ -30,7 +30,7 @@ class Sample(models.Model):
         unique_together = ('metric', 'sample_date')
 
     def __unicode__(self):
-        return '{}/{}: {}'.format(self.sample_date, self.metric.name, self.value)
+        return '{0}/{1}: {2}'.format(self.sample_date, self.metric.name, self.value)
 
     metric = models.ForeignKey(Metric)
     sample_date = models.DateField()
