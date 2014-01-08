@@ -18,9 +18,9 @@ class Environment(models.Model):
         db_table = 'environment'
 
 
-class Procedure(models.Model):
+class UseCase(models.Model):
     class Meta:
-        db_table = 'procedure'
+        db_table = 'use_case'
 
 
 class Sample(models.Model):
@@ -33,10 +33,10 @@ class Sample(models.Model):
         return '{0}/{1}: {2}'.format(self.sample_date, self.metric.name, self.value)
 
     metric = models.ForeignKey(Metric)
-    sample_date = models.DateField()
+    sample_date = models.DateTimeField()
     value = models.FloatField()
     environment = models.ForeignKey(Environment, blank=True, null=True)
-    procedure = models.ForeignKey(Procedure, blank=True, null=True)
+    use_case = models.ForeignKey(UseCase, blank=True, null=True)
 
 
 # vim: set et sw=4 ts=4:
