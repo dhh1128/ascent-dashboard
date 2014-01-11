@@ -21,6 +21,12 @@ class Environment(models.Model):
 class UseCase(models.Model):
     class Meta:
         db_table = 'use_case'
+        ordering = ['id']
+
+    def __unicode__(self):
+        return self.name
+
+    name = models.CharField(max_length=128)
 
 
 class Sample(models.Model):
@@ -37,6 +43,7 @@ class Sample(models.Model):
     value = models.FloatField()
     environment = models.ForeignKey(Environment, blank=True, null=True)
     use_case = models.ForeignKey(UseCase, blank=True, null=True)
+    use_case_id = models.IntegerField()
 
 
 # vim: set et sw=4 ts=4:
