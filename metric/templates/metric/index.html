@@ -15,7 +15,7 @@
             }
 
 
-            .axis.x path, .axis.y path {
+            .axis.x path {
                 display: none;
             }
 
@@ -113,24 +113,16 @@
 
             var color = d3.scale.category10();
 
-            var y = d3.scale.linear()
-                .domain([0, 100])
-                .range([height - padding, padding]);
-
             var axisX = d3.svg.axis()
                 .orient("bottom")
                 .tickFormat(function (d) {return d3.time.format("%b %d %Y")(d);})
-                //.ticks(d3.time.week, 1)
                 .scale(x);
 
             var days = d3.time.days(minDate, d3.time.day.offset(maxDate, 1));
-            axisX.tickValues(
-                    days.filter(function (d, i) {
-                        return i > 0 && i < days.length - 1 && i % 5 == 0;}));
 
-            var axisY = d3.svg.axis()
-                .orient("left")
-                .scale(y);
+            axisX.tickValues(
+                days.filter(function (d, i) {
+                return i > 0 && i < days.length - 1 && i % 5 == 0;}));
 
             var line =  d3.svg.line()
                 .interpolate("linear")
@@ -161,9 +153,51 @@
                 .attr("transform", "rotate(-90)")
                 .style("text-anchor", "end");
 
-            //svg.append("g")
-            //    .attr("class", "axis")
-            //    .call(yAxis);
+            var leftSide = true;
+            var outside = true;
+            //var offset = 0;
+            u.metrics.forEach(function (m) {
+                // determine the side of the graph to put the axis on
+                // use this sequence for scales:
+                // left/out, right/out, left/in, right/in
+                // and if there are more start over and offset the ticks farther out (not supported yet)
+                var orientation = "left";
+                var transform = "translate(0, " + width + ",0)";
+                if( leftSide )
+                {
+                    // determine if inside or outside
+                    if( outside == false )
+                        orientation = "right";
+
+                    leftSide = false;
+                }
+                else
+                {
+                    transform = "translate(" + width + ",0)";
+                    if( outside )
+                        orientation = "right";
+                    leftSide = true;
+                }
+
+                //var metricScale = scales.get(m.name);
+                var metricScale = d3.scale.linear()
+                    .domain(d3.extent(m.samples, function (s) {return s.value;}))
+                    .range([height - padding, padding]);
+
+                var axisY = d3.svg.axis()
+                    .orient(orientation)
+                    .scale(metricScale)
+                    .ticks(4);
+
+                var textColor = color(m.name);
+
+                svg.append("g")
+                    .attr("class", "axis y")
+                    .attr("transform", transform)
+                    .call(axisY)
+                    .selectAll("text")
+                    .style("fill", textColor);
+            });
 
             svg.append("g")
                 .attr("class", "graph");
@@ -171,11 +205,6 @@
             svg.append("g")
                 .attr("class", "grid x")
                 .call(axisX.tickFormat("").tickSize(height - padding, -padding, 0));
-
-            svg.append("g")
-                .attr("class", "grid y")
-                .attr("transform", "translate(" + padding + ")")
-                .call(axisY.tickFormat("").tickSize(-width - padding, 0, 0));
 
             var metric = svg.selectAll(".metric")
                 .data(u.metrics)
@@ -188,8 +217,6 @@
                 .attr("d", function (m) {return lines.get(m.name)(m.samples);})
                 .style("stroke", function (m) {return color(m.name);});
 
-
-            var length = path.node().getTotalLength();
             path
                 .transition()
                 .attr("stroke-dashoffset", 0)
