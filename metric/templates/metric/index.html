@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
     <head>
+        <title>Ascent Metrics</title>
         <meta charset="utf-8">
         <style>
             body {
@@ -13,16 +14,19 @@
                 shape-rendering: crispEdges;
             }
 
-
             .axis.x path, .axis.y path {
-                display: none;
-            }
-
-            .grid.x .tick line, .grid.y .tick line {
-                stroke: lightgrey;
+                stroke: black;
                 opacity: 0.5;
             }
 
+            .grid.x .tick line {
+                stroke: black;
+                opacity: 0.5;
+            }
+
+            .grid.y .tick line {
+                opacity: 0.5;
+            }
 
             .legend a {
                 fill: steelblue;
@@ -51,7 +55,7 @@
     <script>
         // TODO: do refactoring and split into functions
 
-        var margin = {top: 20, right: 400, bottom: 150, left: 50};
+        var margin = {top: 20, right: 400, bottom: 75, left: 50};
         var width = 1280 - margin.left - margin.right;
         var height = 600 - margin.top - margin.bottom;
         var padding = 5;
@@ -89,13 +93,40 @@
             var colors = []; // color domain
             var scales = d3.map(); // own scale for every metric
             var lines = d3.map(); // own line for every metric
-
             u.metrics.forEach(function (m) {
                 colors.push(m.name);
 
+                var sampleDomain = d3.extent(m.samples, function (s) {return s.value;});
+                if (m.min != null)
+                    sampleDomain[0] = m.min;
+                else
+                {
+                    // round the number down
+                    var min = sampleDomain[0];
+                    var mins = [ 0, 10, 50, 75, 100, 250, 500, 1000, 5000, 10000, 50000, 1000000 ];
+
+                    mins.forEach( function (n) {
+                        if (min > n)
+                            sampleDomain[0] = n;
+                    });
+                }
+                if (m.max != null)
+                    sampleDomain[1] = m.max;
+                else
+                {
+                    // round the number up
+                    var max = sampleDomain[1];
+                    var vals = [ 100000, 50000, 10000, 5000, 1000, 500, 250, 200, 160, 100, 80, 50, 10 ];
+
+                    vals.forEach( function (n) {
+                        if (max < n)
+                            sampleDomain[1] = n;
+                    });
+                }
+
                 if (!scales.has(m.name)) {
                     var scale = d3.scale.linear()
-                        .domain(d3.extent(m.samples, function (s) {return s.value;}))
+                        .domain(sampleDomain)
                         .range([height - padding, padding]);
                     scales.set(m.name, scale);
                 }
@@ -112,24 +143,16 @@
 
             var color = d3.scale.category10();
 
-            var y = d3.scale.linear()
-                .domain([0, 100])
-                .range([height - padding, padding]);
-
             var axisX = d3.svg.axis()
                 .orient("bottom")
                 .tickFormat(function (d) {return d3.time.format("%b %d %Y")(d);})
-                //.ticks(d3.time.week, 1)
                 .scale(x);
 
             var days = d3.time.days(minDate, d3.time.day.offset(maxDate, 1));
-            axisX.tickValues(
-                    days.filter(function (d, i) {
-                        return i > 0 && i < days.length - 1 && i % 5 == 0;}));
 
-            var axisY = d3.svg.axis()
-                .orient("left")
-                .scale(y);
+            axisX.tickValues(
+                days.filter(function (d, i) {
+                return i > 0 && i < days.length - 1 && i % 5 == 0;}));
 
             var line =  d3.svg.line()
                 .interpolate("linear")
@@ -160,17 +183,68 @@
                 .attr("transform", "rotate(-90)")
                 .style("text-anchor", "end");
 
+            var leftSide = true;
+            var outside = true;
+            var hasGrid = false;
+            //var offset = 0;   // not currently used - for now only supporting 4 series on a graph
+            u.metrics.forEach(function (m) {
+                // determine the side of the graph to put the axis on
+                // use this sequence for scales:
+                // left/out, right/out, left/in, right/in
+                // and if there are more start over and offset the ticks farther out (not supported yet)
+                var orientation = "left";
+                var transform = "translate(0, " + width + ",0)";
+                if( leftSide )
+                {
+                    // determine if inside or outside
+                    if( outside == false )
+                        orientation = "right";
+
+                    leftSide = false;
+                }
+                else
+                {
+                    transform = "translate(" + width + ",0)";
+                    if( outside )
+                        orientation = "right";
+                    leftSide = true;
+                }
+
+                var metricScale = scales.get(m.name);
+
+                var axisY = d3.svg.axis()
+                    .orient(orientation)
+                    .scale(metricScale)
+                    .ticks(10);
+
+                var textColor = color(m.name);
+
+                // Add the axis
+                svg.append("g")
+                    .attr("class", "axis y")
+                    .attr("transform", transform)
+                    .call(axisY)
+                    .selectAll("text")
+                    .style("fill", textColor);
+
+                // Add the grid lines - only add them for the first series
+                if( hasGrid == false )
+                {
+                    svg.append("g")
+                        .attr("class", "grid y")
+                        .attr("transform", "translate(" + width + ")")
+                        .call(axisY.tickFormat("").tickSize(width - padding, 0, 0))
+                        .style("stroke", textColor);
+                    hasGrid = true;
+                }
+            });
+
             svg.append("g")
                 .attr("class", "graph");
 
             svg.append("g")
                 .attr("class", "grid x")
                 .call(axisX.tickFormat("").tickSize(height - padding, -padding, 0));
-
-            svg.append("g")
-                .attr("class", "grid y")
-                .attr("transform", "translate(" + padding + ")")
-                .call(axisY.tickFormat("").tickSize(-width - padding, 0, 0));
 
             var metric = svg.selectAll(".metric")
                 .data(u.metrics)
@@ -183,8 +257,6 @@
                 .attr("d", function (m) {return lines.get(m.name)(m.samples);})
                 .style("stroke", function (m) {return color(m.name);});
 
-
-            var length = path.node().getTotalLength();
             path
                 .transition()
                 .attr("stroke-dashoffset", 0)

@@ -11,6 +11,8 @@ class Metric(models.Model):
     name = models.CharField(max_length=128)
     explanation_url = models.CharField(max_length=256)
     units = models.CharField(max_length=128)
+    min = models.IntegerField()
+    max = models.IntegerField()
 
 
 class Environment(models.Model):
