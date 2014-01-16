@@ -32,7 +32,10 @@ def index(request):
             else:
                 metric = {'name': metricName,
                           'samples': [],
-                          'units': sample.metric.units, 'url': sample.metric.explanation_url}
+                          'units': sample.metric.units,
+                          'url': sample.metric.explanation_url,
+                          'min': sample.metric.min,
+                          'max': sample.metric.max}
                 metrics.append(metric)
 
             metric['samples'].append({'date': sample.sample_date.strftime('%Y-%m-%dT%H:%M:%S'),
